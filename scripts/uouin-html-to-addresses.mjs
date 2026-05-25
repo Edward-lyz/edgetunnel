@@ -13,15 +13,24 @@ const GROUP_LABELS = new Map([
 const includeIpv6 = process.env.INCLUDE_IPV6 === "true";
 const perGroupLimit = Number.parseInt(process.env.PER_GROUP_LIMIT || "10", 10);
 const maxAgeHours = Number.parseInt(process.env.MAX_AGE_HOURS || "48", 10);
+const gslegeEnabled = process.env.GSLEGE_ENABLED !== "false";
+const gslegeRegions = (process.env.GSLEGE_REGIONS || "JP,SG,US")
+  .split(",")
+  .map((region) => region.trim().toUpperCase())
+  .filter(Boolean);
+const gslegePerRegionLimit = Number.parseInt(process.env.GSLEGE_PER_REGION_LIMIT || "10", 10);
+const gslegePort = process.env.GSLEGE_PORT || "443";
 
 const chrome = findChrome();
 const rendered = dumpRenderedDom(chrome);
 const rows = parseRows(rendered);
 const freshRows = assertFresh(rows);
-const output = selectRows(freshRows);
+const uouinOutput = selectRows(freshRows);
+const gslegeOutput = gslegeEnabled ? await fetchGslegeRows() : [];
+const output = dedupeByAddress([...uouinOutput, ...gslegeOutput]);
 
 if (output.length === 0) {
-  throw new Error("No Cloudflare IP rows were parsed from the rendered page.");
+  throw new Error("No Cloudflare IP rows were parsed from the configured sources.");
 }
 
 process.stdout.write(`${output.join("\n")}\n`);
@@ -157,6 +166,60 @@ function selectRows(rows) {
     selected.push(row.line);
     seenLines.add(row.line);
     groupCounts.set(row.group, count + 1);
+  }
+
+  return selected;
+}
+
+async function fetchGslegeRows() {
+  const groups = await Promise.all(gslegeRegions.map((region) => fetchGslegeRegion(region)));
+  return groups.flat();
+}
+
+async function fetchGslegeRegion(region) {
+  const source = `https://raw.githubusercontent.com/gslege/CloudflareIP/refs/heads/main/${encodeURIComponent(region)}.txt`;
+  const response = await fetch(source, {
+    headers: { "user-agent": "edgetunnel-addresses-updater" },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch gslege ${region}.txt: ${response.status} ${response.statusText}`);
+  }
+
+  const text = await response.text();
+  const selected = [];
+  const seenHosts = new Set();
+
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    const host = line.split("#")[0].trim();
+    if (!isIp(host) || seenHosts.has(host)) continue;
+
+    selected.push(formatAddress(host, gslegePort, `GS_${region}`));
+    seenHosts.add(host);
+
+    if (selected.length >= gslegePerRegionLimit) break;
+  }
+
+  return selected;
+}
+
+function formatAddress(host, port, remark) {
+  const address = host.includes(":") ? `[${host}]` : host;
+  return `${address}:${port}#${remark}`;
+}
+
+function dedupeByAddress(lines) {
+  const selected = [];
+  const seen = new Set();
+
+  for (const line of lines) {
+    const address = line.split("#")[0];
+    if (seen.has(address)) continue;
+    selected.push(line);
+    seen.add(address);
   }
 
   return selected;

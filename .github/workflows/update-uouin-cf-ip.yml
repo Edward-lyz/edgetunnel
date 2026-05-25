@@ -1,4 +1,4 @@
-name: Update Uouin CF IPs
+name: Update CF IPs
 
 on:
   workflow_dispatch:
@@ -30,6 +30,9 @@ jobs:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
           INCLUDE_IPV6: "false"
           PER_GROUP_LIMIT: "10"
+          GSLEGE_ENABLED: "true"
+          GSLEGE_REGIONS: "JP,SG,US"
+          GSLEGE_PER_REGION_LIMIT: "10"
           MAX_AGE_HOURS: "48"
         run: |
           node scripts/uouin-html-to-addresses.mjs > addressesapi.txt
@@ -41,5 +44,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add addressesapi.txt
-          git diff --cached --quiet || git commit -m "chore: update uouin cf ips"
+          git diff --cached --quiet || git commit -m "chore: update cf ips"
           git push
