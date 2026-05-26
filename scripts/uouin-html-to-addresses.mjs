@@ -3,10 +3,10 @@ import { existsSync } from "node:fs";
 
 const SOURCE_URL = "https://api.uouin.com/cloudflare.html";
 const GROUP_LABELS = new Map([
-  ["电信", "CT"],
-  ["联通", "CU"],
-  ["移动", "CM"],
-  ["多线", "BGP"],
+  ["电信", "CN_CT_Uouin"],
+  ["联通", "CN_CU_Uouin"],
+  ["移动", "CN_CM_Uouin"],
+  ["多线", "CN_BGP_Uouin"],
   ["IPV6", "IPv6"],
 ]);
 
@@ -100,7 +100,7 @@ function parseRows(html) {
       group,
       ip,
       time,
-      line: `${address}:443#${group}_${compact(ping)}_${compact(speed)}`,
+      line: `${address}:443#${group}_${compactMetric(ping)}_${compactMetric(speed)}`,
       loss,
       bandwidth,
     });
@@ -118,8 +118,11 @@ function cleanCell(value) {
     .trim();
 }
 
-function compact(value) {
-  return value.replace(/\s+/g, "");
+function compactMetric(value) {
+  return value
+    .replace(/\s+/g, "")
+    .replace(/mb\/s/gi, "Mbps")
+    .replace(/ms/gi, "ms");
 }
 
 function isIp(value) {
@@ -197,7 +200,7 @@ async function fetchGslegeRegion(region) {
     const host = line.split("#")[0].trim();
     if (!isIp(host) || seenHosts.has(host)) continue;
 
-    selected.push(formatAddress(host, gslegePort, `GS_${region}`));
+    selected.push(formatAddress(host, gslegePort, `${region}_GS_${String(selected.length + 1).padStart(2, "0")}`));
     seenHosts.add(host);
 
     if (selected.length >= gslegePerRegionLimit) break;
