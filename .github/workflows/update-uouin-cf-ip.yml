@@ -24,8 +24,9 @@ jobs:
 
       - name: Build GitHub preferred IP list
         env:
-          GSLEGE_REGIONS: "JP,SG"
+          GSLEGE_REGIONS: "JP,SG,US"
           GSLEGE_PER_REGION_LIMIT: "100"
+          GSLEGE_REGION_LIMITS: "US=5"
           GSLEGE_PORT: "443"
         run: |
           node scripts/uouin-html-to-addresses.mjs > addressesapi.txt

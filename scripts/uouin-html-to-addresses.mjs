@@ -1,8 +1,9 @@
-const gslegeRegions = (process.env.GSLEGE_REGIONS || "JP,SG")
+const gslegeRegions = (process.env.GSLEGE_REGIONS || "JP,SG,US")
   .split(",")
   .map((region) => region.trim().toUpperCase())
   .filter(Boolean);
 const gslegePerRegionLimit = Number.parseInt(process.env.GSLEGE_PER_REGION_LIMIT || "100", 10);
+const gslegeRegionLimits = parseRegionLimits(process.env.GSLEGE_REGION_LIMITS || "US=5");
 const gslegePort = process.env.GSLEGE_PORT || "443";
 
 const output = dedupeByAddress((await Promise.all(gslegeRegions.map(fetchGslegeRegion))).flat());
@@ -33,10 +34,28 @@ async function fetchGslegeRegion(region) {
     selected.push(formatAddress(host, gslegePort, `${region}_GS_${String(selected.length + 1).padStart(2, "0")}`));
     seenHosts.add(host);
 
-    if (selected.length >= gslegePerRegionLimit) break;
+    if (selected.length >= regionLimit(region)) break;
   }
 
   return selected;
+}
+
+function parseRegionLimits(value) {
+  const limits = new Map();
+
+  for (const item of value.split(",")) {
+    const [region, limit] = item.split("=").map((part) => part.trim());
+    const parsed = Number.parseInt(limit, 10);
+    if (region && Number.isFinite(parsed) && parsed > 0) {
+      limits.set(region.toUpperCase(), parsed);
+    }
+  }
+
+  return limits;
+}
+
+function regionLimit(region) {
+  return gslegeRegionLimits.get(region) || gslegePerRegionLimit;
 }
 
 function isIp(value) {
