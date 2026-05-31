@@ -22,18 +22,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - id: chrome
-        uses: browser-actions/setup-chrome@v1
-
-      - name: Render and convert Cloudflare IP table
+      - name: Build GitHub preferred IP list
         env:
-          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
-          INCLUDE_IPV6: "false"
-          PER_GROUP_LIMIT: "10"
-          GSLEGE_ENABLED: "true"
-          GSLEGE_REGIONS: "JP,SG,US"
-          GSLEGE_PER_REGION_LIMIT: "10"
-          MAX_AGE_HOURS: "48"
+          GSLEGE_REGIONS: "JP,SG"
+          GSLEGE_PER_REGION_LIMIT: "100"
+          GSLEGE_PORT: "443"
         run: |
           node scripts/uouin-html-to-addresses.mjs > addressesapi.txt
           test -s addressesapi.txt
